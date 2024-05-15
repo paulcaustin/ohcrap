@@ -5,8 +5,9 @@ import re
 import argparse
 import random
 
-# I think this is how to specify a strategy
-strategy = {
+# I think this is generally useful in defining a strategy
+# But the values COULD change for different strategies
+roll_value = {
     #   %bust  value
     6: (0.024, 490),
     5: (0.078, 300),
@@ -17,12 +18,12 @@ strategy = {
 }
 
 parser = argparse.ArgumentParser(description='Analyze the dice game')
+parser.add_argument('--loops', '-l', metavar='N', default=1000*1000, help='How many loops')
 parser.add_argument('--test', '-t', action='store_true', help='Test #1')
-parser.add_argument('--zero', '-z', metavar='loops', help='Use Monte-Carlo to get probabilities of 0')
-parser.add_argument('--rolls', '-r', metavar='loops', help='Use Monte-Carlo to get data for rolls')
-parser.add_argument('--full', '-f', metavar='loops', help='Run full sim')
+parser.add_argument('--rolls', '-r', action='store_true', help='Calc data for individual rolls')
+parser.add_argument('--full', '-f', action='store_true', help='Full sim with strategy')
 parser.add_argument('--dice', '-d', metavar='numdice', default=6, help='Start with N dice')
-parser.add_argument('--simple', '-s', metavar='loops', help='Run with simple strategy')
+parser.add_argument('--strategy', '-s', metavar='name', default='trivial', help='Run with specified strategy')
 parser.add_argument('--caution', '-c', metavar='fudge', default=1.0, help='fudge factor for extra caution, def 1.0')
 args = parser.parse_args()
 
@@ -68,6 +69,82 @@ def score_dice(dice):
 
     return (total_score, used)
 
+def strategize(current_score, dice):
+    '''
+        Implement a strategy based on current score and the current roll.
+        The interface is to return the score and the number of dice to roll next.
+        A score of 0 means we busted (no strategy is needed).
+        Rolling 0 dice next means the strategy says to stop rolling.
+    '''
+    (score, used) = score_dice(dice)
+    # print(f"Rolled {num_dice}: {','.join((str(x) for x in dice))} - {score}")
+
+    # Handle a bust
+    if score == 0:
+        return (0, 0)
+
+    if args.strategy == 'smart':
+        # To be implemented
+        pass
+    elif args.strategy == 'keepall':
+        # Use all scorable dice
+        # Decide if we should continue rolling by using roll_values * caution
+        keep_all_score = current_score + score
+        remaining_dice = len(dice) - used if used < len(dice) else 6
+        (chance_of_bust, value_to_proceed) = roll_value[remaining_dice]
+
+        if roll_score * chance_of_bust < value_to_proceed * float(args.caution):
+            return (keep_all_score, remaining_dice)
+        else:
+            # Quit while you're ahead
+            return (keep_all_score, 0)
+    elif args.strategy == 'trivial':
+        # Decide if we should continue rolling
+        keep_all_score = current_score + score
+        remaining_dice = len(dice) - used if used < len(dice) else 6
+
+        # Continue if you have 4, 5, or 6 dice
+        if remaining_dice > 3:
+            return (keep_all_score, remaining_dice)
+        else:
+            # Quit while you're ahead
+            return (keep_all_score, 0)
+    elif args.strategy == 'hardcoded':
+        # Decide if we should continue rolling
+        keep_all_score = current_score + score
+        remaining_dice = len(dice) - used if used < len(dice) else 6
+
+        if remaining_dice == 6 and keep_all_score < 20000:   # Worth 500 ?
+            pass
+        elif remaining_dice == 5 and keep_all_score < 5000:  # Worth 400 ?
+            pass
+        elif remaining_dice == 4 and keep_all_score < 2000:  # Worth 300 ?
+            pass
+        elif remaining_dice == 3 and keep_all_score < 700:   # Worth 200 ?
+            pass
+        elif remaining_dice == 2 and keep_all_score < 200:   # Worth 100 ?
+            pass
+        elif remaining_dice == 1 and keep_all_score < 75:    # Worth 50 ?
+            pass
+        else:
+            return (keep_all_score, 0)
+
+        return (keep_all_score, remaining_dice)
+    else:
+        throw(f"Unknown strategy: {args.strategy}")
+
+def iterate_dice_combinations(*dice):
+    '''
+        Iterate over all subsets of the given dice.
+        Example:
+            for combination in iterate_dice_combinations(5, 4, 3):
+                print(combination)
+    '''
+    if dice:
+        for i, d in enumerate(dice):
+            for c in iterate_dice_combinations(*dice[:i] + dice[i+1:]):
+                yield (d,) + c
+
 # Example usage:
 # dice = [1, 2, 3, 4, 5, 6]
 # print("Maximum score for", dice, ":", calculate_max_score(dice))
@@ -81,115 +158,52 @@ if args.test:
         print(f"{max_score}, {used}: {','.join((str(x) for x in dice))}")
     sys.exit(0)
 
-if args.zero:
-    for num_dice in range(1,7):
-        bust = 0
-        total = 0
-        for i in range(1, int(args.zero)):
-            dice = roll_dice(num_dice)
-            (max_score, used) = score_dice(dice)
-            total += max_score
-            if max_score == 0:
-                bust += 1
-        avg = total / (int(args.zero) - bust)
-        print(f"Dice={num_dice}, Bust={(100*bust/int(args.zero)):.1f}")
-
 if args.rolls:
     for num_dice in range(1,7):
         bust = 0
         total = 0
-        for i in range(1, int(args.rolls)):
+        for i in range(1, int(args.loops)):
             dice = roll_dice(num_dice)
             (max_score, used) = score_dice(dice)
             total += max_score
             if max_score == 0:
                 bust += 1
-        avg = total / (int(args.rolls) - bust)
-        print(f"Dice={num_dice}, Bust={(100*bust/int(args.rolls)):.1f}, Avg={int(avg)}")
+        avg = total / (int(args.loops) - bust)
+        print(f"Dice={num_dice}, Bust={(100*bust/int(args.loops)):.1f}, Avg={int(avg)}")
 
 if args.full:
     bust = 0
     total = 0
     lost_score = 0
-    for i in range(1, int(args.full)):
+    for i in range(1, int(args.loops)):
         num_dice = int(args.dice)
         roll_score = 0
         rolls = 0
         while True:
             rolls += 1
             dice = roll_dice(num_dice)
+            (new_score, dice_to_roll) = strategize(roll_score, dice)
 
-            # Simple strategy, use all scorable dice
-            (score, used) = score_dice(dice)
             # print(f"Rolled {num_dice}: {','.join((str(x) for x in dice))} - {score}")
 
             # Handle a bust
-            if score == 0:
+            if new_score == 0:
                 bust += 1
                 lost_score += roll_score
                 roll_score = 0
                 break
 
-            # Simple strategy
-            roll_score += score
-            remaining = num_dice - used if used < num_dice else 6
-            (chance_of_bust, value_to_proceed) = strategy[remaining]
-
-            if roll_score * chance_of_bust < value_to_proceed * float(args.caution):
-                pass
-            else:
+            roll_score = new_score
+            if dice_to_roll == 0:
                 break   # Quit while you're ahead
-            num_dice = remaining
+
+            num_dice = dice_to_roll
+
         total += roll_score
         # print(f"Turn {i}: Score={roll_score}, Rolls={rolls}")
+
     avg_lost = lost_score / bust if bust > 0 else 0
-    avg_score = total / (int(args.full) - bust)
-    avg_score = total / (int(args.full))
-    print(f"Avg={avg_score:.1f}, Bust={(100*bust/int(args.full)):.1f}, AvgLost={avg_lost:.1f}")
-
-if args.simple:
-    bust = 0
-    total = 0
-    lost_score = 0
-    for i in range(1, int(args.simple)):
-        num_dice = int(args.dice)
-        roll_score = 0
-        rolls = 0
-        while True:
-            rolls += 1
-            dice = roll_dice(num_dice)
-
-            # Simple strategy, use all scorable dice
-            (score, used) = score_dice(dice)
-            # print(f"Rolled {num_dice}: {','.join((str(x) for x in dice))} - {score}")
-
-            # Handle a bust
-            if score == 0:
-                bust += 1
-                lost_score += roll_score
-                roll_score = 0
-                break
-
-            # Simple strategy
-            roll_score += score
-            remaining = num_dice - used if used < num_dice else 6
-            if remaining == 6 and roll_score < 20000:   # Worth 500 ?
-                pass
-            elif remaining == 5 and roll_score < 5000:  # Worth 400 ?
-                pass
-            elif remaining == 4 and roll_score < 2000:  # Worth 300 ?
-                pass
-            elif remaining == 3 and roll_score < 700:   # Worth 200 ?
-                pass
-            elif remaining == 2 and roll_score < 200:   # Worth 100 ?
-                pass
-            elif remaining == 1 and roll_score < 75:    # Worth 50 ?
-                pass
-            else:
-                break   # Quit while you're ahead
-            num_dice = remaining
-        total += roll_score
-        # print(f"Turn {i}: Score={roll_score}, Rolls={rolls}")
-    avg_lost = lost_score / bust if bust > 0 else 0
-    avg_score = total / (int(args.simple) - bust)
-    print(f"Avg={avg_score:.1f}, Bust={(100*bust/int(args.simple)):.1f}, AvgLost={avg_lost:.1f}")
+    # If you think we should exclude busts from the avg
+    # avg_score = total / (int(args.loops) - bust)
+    avg_score = total / int(args.loops)
+    print(f"Avg={avg_score:.1f}, Bust={(100*bust/int(args.loops)):.1f}, AvgLost={avg_lost:.1f}")
