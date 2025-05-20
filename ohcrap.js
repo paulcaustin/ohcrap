@@ -1,4 +1,3 @@
-```javascript
 #!/usr/bin/env node
 
 // I think this is generally useful in defining a strategy
@@ -16,41 +15,34 @@ const roll_value = {
 const parser = require('argparse').ArgumentParser({
   description: 'Analyze the dice game',
 });
-parser.add_argument('--loops', { 
-  '-l': 'N',
+parser.add_argument('--loops', '-l', {
   metavar: 'N',
   defaultValue: 1000 * 1000,
   help: 'How many loops',
 });
-parser.add_argument('--test', {
-  '-t': true,
+parser.add_argument('--test', '-t', {
   action: 'store_true',
   help: 'Test #1',
 });
-parser.add_argument('--rolls', {
-  '-r': true,
+parser.add_argument('--rolls', '-r', {
   action: 'store_true',
   help: 'Calc data for individual rolls',
 });
-parser.add_argument('--full', {
-  '-f': true,
+parser.add_argument('--full', '-f', {
   action: 'store_true',
   help: 'Full sim with strategy',
 });
-parser.add_argument('--dice', {
-  '-d': 'numdice',
+parser.add_argument('--dice', '-d', {
   metavar: 'numdice',
   defaultValue: 6,
   help: 'Start with N dice',
 });
-parser.add_argument('--strategy', {
-  '-s': 'name',
+parser.add_argument('--strategy', '-s', {
   metavar: 'name',
   defaultValue: 'trivial',
   help: 'Run with specified strategy',
 });
-parser.add_argument('--caution', {
-  '-c': 'fudge',
+parser.add_argument('--caution', '-c', {
   metavar: 'fudge',
   defaultValue: 1.0,
   help: 'fudge factor for extra caution, def 1.0',
@@ -267,4 +259,3 @@ if (args.full) {
   const avg_score = total / parseInt(args.loops);
   console.log(`Avg=${avg_score.toFixed(1)}, Bust=${(100 * bust / parseInt(args.loops)).toFixed(1)}, AvgLost=${avg_lost.toFixed(1)}`);
 }
-```
