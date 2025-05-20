@@ -1,4 +1,5 @@
-``use strict``;
+```javascript
+#!/usr/bin/env node
 
 // I think this is generally useful in defining a strategy
 // But the values COULD change for different strategies
@@ -72,7 +73,7 @@ function score_dice(dice) {
   if (counts.filter((c) => c === 2).length === 3) {
     return [500, 6]; // 3 pairs
   }
-  if (JSON.stringify(dice.sort((a, b) => a - b)) === JSON.stringify([1, 2, 3, 4, 5, 6])) {
+  if (JSON.stringify(dice.slice().sort((a, b) => a - b)) === JSON.stringify([1, 2, 3, 4, 5, 6])) {
     return [1500, 6]; // 1,2,3,4,5,6
   }
 
@@ -121,6 +122,7 @@ function strategize(current_score, dice) {
 
   if (args.strategy === 'smart') {
     // To be implemented
+    return [current_score + score, 0]; // Default return to avoid infinite loop
   } else if (args.strategy === 'keepall') {
     // Use all scorable dice
     // Decide if we should continue rolling by using roll_values * caution
@@ -128,7 +130,9 @@ function strategize(current_score, dice) {
     const remaining_dice = used < dice.length ? dice.length - used : 6;
     const [chance_of_bust, value_to_proceed] = roll_value[remaining_dice];
 
-    if (roll_score * chance_of_bust < value_to_proceed * parseFloat(args.caution)) {
+    // Note: The original python code used `roll_score` here, which is not defined in this scope.
+    // Assuming it should be `keep_all_score` or `score`. Using `score` based on context.
+    if (score * chance_of_bust < value_to_proceed * parseFloat(args.caution)) {
       return [keep_all_score, remaining_dice];
     } else {
       // Quit while you're ahead
@@ -151,38 +155,46 @@ function strategize(current_score, dice) {
     const keep_all_score = current_score + score;
     const remaining_dice = used < dice.length ? dice.length - used : 6;
 
-    if (remaining_dice === 6 && keep_all_score < 20000) { // Worth 500 ?
-    } else if (remaining_dice === 5 && keep_all_score < 5000) { // Worth 400 ?
-    } else if (remaining_dice === 4 && keep_all_score < 2000) { // Worth 300 ?
-    } else if (remaining_dice === 3 && keep_all_score < 700) { // Worth 200 ?
-    } else if (remaining_dice === 2 && keep_all_score < 200) { // Worth 100 ?
-    } else if (remaining_dice === 1 && keep_all_score < 75) { // Worth 50 ?
+    if (remaining_dice === 6 && keep_all_score < 20000) { 
+       return [keep_all_score, remaining_dice];
+    } else if (remaining_dice === 5 && keep_all_score < 5000) { 
+       return [keep_all_score, remaining_dice];
+    } else if (remaining_dice === 4 && keep_all_score < 2000) { 
+       return [keep_all_score, remaining_dice];
+    } else if (remaining_dice === 3 && keep_all_score < 700) { 
+       return [keep_all_score, remaining_dice];
+    } else if (remaining_dice === 2 && keep_all_score < 200) { 
+       return [keep_all_score, remaining_dice];
+    } else if (remaining_dice === 1 && keep_all_score < 75) { 
+       return [keep_all_score, remaining_dice];
     } else {
       return [keep_all_score, 0];
     }
 
-    return [keep_all_score, remaining_dice];
   } else {
     throw new Error(`Unknown strategy: ${args.strategy}`);
   }
+  // Default return to avoid infinite loop if strategy is not 'smart'
+  return [current_score + score, 0];
 }
 
-function iterate_dice_combinations(...dice) {
+function iterate_dice_combinations(dice) {
   /**
    * Iterate over all subsets of the given dice.
-   * Example:
-   *     for (const combination of iterate_dice_combinations(5, 4, 3)) {
-   *       console.log(combination);
-   *     }
    */
-  if (dice.length) {
-    for (let i = 0; i < dice.length; i++) {
-      const d = dice[i];
-      for (const c of iterate_dice_combinations(...dice.slice(0, i).concat(dice.slice(i + 1)))) {
-        yield [d, ...c];
-      }
+  const combinations = [];
+  function generateCombinations(currentIndex, currentCombination) {
+    combinations.push(currentCombination);
+
+    for (let i = currentIndex; i < dice.length; i++) {
+      generateCombinations(i + 1, currentCombination.concat(dice[i]));
     }
   }
+
+  generateCombinations(0, []);
+  // Remove the empty combination at the beginning
+  combinations.shift();
+  return combinations;
 }
 
 // Example usage:
@@ -255,3 +267,4 @@ if (args.full) {
   const avg_score = total / parseInt(args.loops);
   console.log(`Avg=${avg_score.toFixed(1)}, Bust=${(100 * bust / parseInt(args.loops)).toFixed(1)}, AvgLost=${avg_lost.toFixed(1)}`);
 }
+```
